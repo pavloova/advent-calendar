@@ -162,9 +162,33 @@
       // Cloud Storage helpers
       const saveToCloud = async (data) => {
         try {
-          await tg.CloudStorage.setItem('tasks', JSON.stringify(data.tasks));
-          await tg.CloudStorage.setItem('calendar', JSON.stringify(data.calendar));
-          await tg.CloudStorage.setItem('startDate', data.startDate || '');
+          console.log('Saving to cloud:', { 
+            tasksCount: data.tasks.length, 
+            calendarDays: Object.keys(data.calendar).length,
+            startDate: data.startDate 
+          });
+          
+          tg.CloudStorage.setItem('tasks', JSON.stringify(data.tasks), (error) => {
+            if (error) {
+              console.error('Error saving tasks:', error);
+            } else {
+              console.log('Tasks saved successfully');
+            }
+          });
+          tg.CloudStorage.setItem('calendar', JSON.stringify(data.calendar), (error) => {
+            if (error) {
+              console.error('Error saving calendar:', error);
+            } else {
+              console.log('Calendar saved successfully');
+            }
+          });
+          tg.CloudStorage.setItem('startDate', data.startDate || '', (error) => {
+            if (error) {
+              console.error('Error saving startDate:', error);
+            } else {
+              console.log('StartDate saved successfully');
+            }
+          });
         } catch (error) {
           console.error('Error saving to cloud:', error);
         }
@@ -172,24 +196,43 @@
 
       const loadFromCloud = async () => {
         try {
-          const tasksStr = await tg.CloudStorage.getItem('tasks');
-          const calendarStr = await tg.CloudStorage.getItem('calendar');
-          const startDateStr = await tg.CloudStorage.getItem('startDate');
+          console.log('Loading data from Telegram Cloud Storage...');
+          // Get all items from Cloud Storage
+          tg.CloudStorage.getItems(['tasks', 'calendar', 'startDate'], (error, result) => {
+            if (error) {
+              console.error('Error loading from cloud:', error);
+              setIsLoading(false);
+              return;
+            }
 
-          const loadedTasks = tasksStr ? JSON.parse(tasksStr) : [];
-          const loadedCalendar = calendarStr ? JSON.parse(calendarStr) : {};
-          const loadedStartDate = startDateStr || null;
+            console.log('Loaded data:', result);
 
-          setTasks(loadedTasks);
-          setCalendar(loadedCalendar);
-          setStartDate(loadedStartDate);
+            try {
+              const loadedTasks = result.tasks ? JSON.parse(result.tasks) : [];
+              const loadedCalendar = result.calendar ? JSON.parse(result.calendar) : {};
+              const loadedStartDate = result.startDate || null;
 
-          if (loadedCalendar && Object.keys(loadedCalendar).length > 0) {
-            setView('calendar');
-          }
+              console.log('Parsed tasks:', loadedTasks.length, 'calendar days:', Object.keys(loadedCalendar).length);
+
+              setTasks(loadedTasks);
+              setCalendar(loadedCalendar);
+              setStartDate(loadedStartDate);
+
+              // Set view based on loaded data
+              if (loadedCalendar && Object.keys(loadedCalendar).length > 0) {
+                console.log('Setting view to calendar');
+                setView('calendar');
+              } else {
+                console.log('No calendar data, staying on home');
+              }
+            } catch (parseError) {
+              console.error('Error parsing data:', parseError);
+            } finally {
+              setIsLoading(false);
+            }
+          });
         } catch (error) {
           console.error('Error loading from cloud:', error);
-        } finally {
           setIsLoading(false);
         }
       };
@@ -366,9 +409,9 @@
             setCalendar({});
             setStartDate(null);
             setView('home');
-            tg.CloudStorage.removeItem('tasks');
-            tg.CloudStorage.removeItem('calendar');
-            tg.CloudStorage.removeItem('startDate');
+            tg.CloudStorage.removeItems(['tasks', 'calendar', 'startDate'], (error) => {
+              if (error) console.error('Error removing items:', error);
+            });
             tg.HapticFeedback.notificationOccurred('success');
           }
         });
