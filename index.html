@@ -44,6 +44,27 @@
     * {
       -webkit-tap-highlight-color: transparent;
     }
+
+    @keyframes bounce-in {
+      0% {
+        transform: scale(0.3);
+        opacity: 0;
+      }
+      50% {
+        transform: scale(1.05);
+      }
+      70% {
+        transform: scale(0.9);
+      }
+      100% {
+        transform: scale(1);
+        opacity: 1;
+      }
+    }
+
+    .animate-bounce-in {
+      animation: bounce-in 0.5s ease-out;
+    }
   </style>
 </head>
 <body>
@@ -103,11 +124,39 @@
       const [editingText, setEditingText] = useState('');
       const [startDate, setStartDate] = useState(null);
       const [isLoading, setIsLoading] = useState(true);
+      const [showMotivation, setShowMotivation] = useState(false);
+      const [motivationText, setMotivationText] = useState('');
 
       const taskColors = [
         '#C66F80', '#F4C7D0', '#F9EBF1',
         '#4A6644', '#9FAA74', '#D7DAB3',
         '#ECE3D2'
+      ];
+
+      const motivationalMessages = [
+        'Отлично! Ты молодец! 🌟',
+        'Продолжай в том же духе! 💪',
+        'Ещё один шаг к цели! ✨',
+        'Ты справляешься! 🎯',
+        'Так держать! 🔥',
+        'Маленькие шаги ведут к большим результатам! 🌸',
+        'Ты невероятна! 💖',
+        'Каждый день приближает к мечте! 🌈',
+        'Гордись собой! 🎨',
+        'Ты делаешь это! 🌺',
+        'Прогресс налицо! ⭐',
+        'Вперёд к новым свершениям! 🚀',
+        'Ты сильнее, чем думаешь! 💫',
+        'Это того стоит! 🌻',
+        'Ты на правильном пути! 🎪'
+      ];
+
+      const completionMessages = [
+        'Поздравляю! Ты прошла весь календарь! 🎉🎊',
+        'Невероятно! Все 30 дней позади! 🏆✨',
+        'Ты справилась! Какая ты молодец! 🌟💖',
+        'Финиш! Ты достигла цели! 🎯🎈',
+        'Браво! Месяц продуктивности завершён! 👏🌸'
       ];
 
       // Cloud Storage helpers
@@ -221,10 +270,35 @@
       };
 
       const toggleTaskCompletion = (taskId) => {
-        setTasks(tasks.map(t => 
+        const task = tasks.find(t => t.id === taskId);
+        if (!task) return;
+
+        const wasCompleted = task.completed;
+        const updatedTasks = tasks.map(t => 
           t.id === taskId ? { ...t, completed: !t.completed } : t
-        ));
-        tg.HapticFeedback.impactOccurred('light');
+        );
+        setTasks(updatedTasks);
+        
+        // Show motivation when completing a task
+        if (!wasCompleted) {
+          const randomMessage = motivationalMessages[Math.floor(Math.random() * motivationalMessages.length)];
+          setMotivationText(randomMessage);
+          setShowMotivation(true);
+          tg.HapticFeedback.notificationOccurred('success');
+          
+          // Check if all tasks are completed
+          const allCompleted = updatedTasks.every(t => t.completed);
+          if (allCompleted) {
+            setTimeout(() => {
+              const completionMessage = completionMessages[Math.floor(Math.random() * completionMessages.length)];
+              setMotivationText(completionMessage);
+              setShowMotivation(true);
+              tg.HapticFeedback.notificationOccurred('success');
+            }, 2000);
+          }
+        } else {
+          tg.HapticFeedback.impactOccurred('light');
+        }
       };
 
       const shuffleArray = (array) => {
@@ -239,18 +313,21 @@
       const distributeTasks = () => {
         const shuffledTasks = shuffleArray(tasks);
         const newCalendar = {};
-        const tasksPerDay = Math.ceil(shuffledTasks.length / 30);
         
-        for (let day = 1; day <= 30; day++) {
+        // Number of days = number of tasks, but max 30
+        const totalDays = Math.min(shuffledTasks.length, 30);
+        const tasksPerDay = Math.ceil(shuffledTasks.length / totalDays);
+        
+        for (let day = 1; day <= totalDays; day++) {
           newCalendar[day] = [];
         }
         
         shuffledTasks.forEach((task, index) => {
           const day = Math.floor(index / tasksPerDay) + 1;
-          if (day <= 30) {
+          if (day <= totalDays) {
             newCalendar[day].push(task.id);
           } else {
-            newCalendar[30].push(task.id);
+            newCalendar[totalDays].push(task.id);
           }
         });
         
@@ -269,7 +346,8 @@
         const now = new Date();
         const diffTime = Math.abs(now - start);
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        return Math.min(diffDays, 30);
+        const totalDays = Object.keys(calendar).length || 30;
+        return Math.min(diffDays, totalDays);
       };
 
       const currentDay = getCurrentDay();
@@ -316,7 +394,7 @@
                   Адвент Календарь
                 </h1>
                 <p className="text-[#A0525C] text-lg" style={{ fontFamily: 'Courier Prime, monospace' }}>
-                  30 дней мотивации и задач
+                  До 30 дней мотивации и задач
                 </p>
               </div>
 
@@ -356,7 +434,7 @@
               </div>
 
               <div className="mt-8 text-center text-[#A0525C] text-sm" style={{ fontFamily: 'Courier Prime, monospace' }}>
-                <p>✨ Добавь задачи и открывай по одной каждый день</p>
+                <p>✨ Добавь задачи и выполняй их день за днём</p>
               </div>
             </div>
           </div>
@@ -384,7 +462,7 @@
                 </div>
 
                 <p className="text-[#A0525C] mb-4 text-sm" style={{ fontFamily: 'Courier Prime, monospace' }}>
-                  Добавь задачи, которые хочешь выполнить за 30 дней. Они будут случайно распределены по дням.
+                  Добавь задачи, которые хочешь выполнить. Они будут случайно распределены по дням (максимум 30 дней).
                 </p>
 
                 <div className="mb-3 p-2 bg-[#F4C7D0]/30 rounded-lg border-2 border-[#C66F80]/30">
@@ -536,17 +614,17 @@
             </div>
 
             <div className="grid grid-cols-5 gap-2">
-              {[...Array(30)].map((_, index) => {
-                const day = index + 1;
-                const dayTasks = (calendar[day] || []).map(id => tasks.find(t => t.id === id)).filter(Boolean);
+              {Object.keys(calendar).sort((a, b) => Number(a) - Number(b)).map((day) => {
+                const dayNum = Number(day);
+                const dayTasks = (calendar[dayNum] || []).map(id => tasks.find(t => t.id === id)).filter(Boolean);
                 const allCompleted = dayTasks.length > 0 && dayTasks.every(t => t.completed);
-                const isCurrent = day === currentDay;
+                const isCurrent = dayNum === currentDay;
 
                 return (
                   <button
-                    key={day}
+                    key={dayNum}
                     onClick={() => {
-                      setSelectedDay(day);
+                      setSelectedDay(dayNum);
                       tg.HapticFeedback.impactOccurred('light');
                     }}
                     className={`
@@ -559,7 +637,7 @@
                     `}
                   >
                     <div className="flex flex-col items-center justify-center h-full">
-                      <div className="text-xl font-bold vintage-text">{day}</div>
+                      <div className="text-xl font-bold vintage-text">{dayNum}</div>
                       {dayTasks.length > 0 && (
                         <div className="text-xs opacity-75" style={{ fontFamily: 'Courier Prime, monospace' }}>
                           {dayTasks.filter(t => t.completed).length}/{dayTasks.length}
@@ -648,6 +726,36 @@
                         );
                       })
                     )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Motivational Popup */}
+            {showMotivation && (
+              <div 
+                className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50" 
+                onClick={() => setShowMotivation(false)}
+              >
+                <div 
+                  className="bg-gradient-to-br from-[#F4C7D0] to-[#F9EBF1] rounded-3xl shadow-2xl max-w-sm w-full p-8 border-4 border-[#C66F80] transform scale-100 animate-bounce-in"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="text-center">
+                    <div className="text-6xl mb-4">🌟</div>
+                    <h3 className="text-2xl font-bold text-[#8B4049] mb-4 vintage-text">
+                      {motivationText}
+                    </h3>
+                    <button
+                      onClick={() => {
+                        setShowMotivation(false);
+                        tg.HapticFeedback.impactOccurred('light');
+                      }}
+                      className="bg-[#8B4049] text-white px-6 py-3 rounded-xl font-bold active:scale-95 transition-all border-2 border-[#6B2C35]"
+                      style={{ fontFamily: 'Special Elite, cursive' }}
+                    >
+                      Спасибо! ✨
+                    </button>
                   </div>
                 </div>
               </div>
